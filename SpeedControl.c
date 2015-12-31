@@ -13,7 +13,7 @@
 #include <CKGeneral.h>
 #include <CKVex.h>
 
-#define CKAveragerSampleSize 5
+#define CKAveragerSampleSize 20
 #include <CKAverager.h>
 
 
@@ -89,7 +89,7 @@ void gradualStop( MotorState& self ){
 	float s = sgn( self.power );
 	for( float p = fabs(self.power); p > 0; p -= 0.01 ){
 		setPower( self, s*p );
-		delay(20);
+		delay(80);
 	}
 	setPower( self, 0 );
 }
@@ -108,6 +108,14 @@ void waitUntilRest( MotorState& self ){
 	}
 }
 
+float powerForVelocity( float v ){
+	return 0.101 * exp(0.197 * v);
+}
+
+float getVelocityDial(){
+	return 9*potentiometer(pSpeedPot);
+}
+
 
 task main(){
 
@@ -120,46 +128,34 @@ task main(){
 	Averager velocityAverager;
 	AveragerInit( velocityAverager );
 
+	Averager errorAverager;
+	AveragerInit( errorAverager );
+
 	float v = MainBatteryVoltage();
 
 	while( !isPressed(pActivator) )  delay(10);
 	while(  isPressed(pActivator) )  delay(10);
 
-	const long MinRunTime = 2000;
 
-	//float po = potentiometer(pSpeedPot);
+	float targetVelocity = getVelocityDial();
+	float idealPower = powerForVelocity( targetVelocity );
 
-	for( int rep = 0; rep < 20; ++rep ){
-		for( float po = 0.1; po <= 1.001; po += 0.1 ){
-			setPower( testMotor, po );
+	float p = 0, error, avgError;
 
-			long startTime = nPgmTime;
-			float avgAccel = 0;
-			float vSum = 0;
-			int count = 0;
-			while( !isPressed(pActivator) ){
-				long iTime = nPgmTime;
-				v = MainBatteryVoltage();
-				vSum += v;
-				measureVelocity(testMotor);
-				addSample( velocityAverager, testMotor.imeVelocity );
-				addSample( accelAverager, testMotor.imeAccel );
-				avgAccel = average( accelAverager );
-				//writeDebugStreamLine("%.2f\t%.3f\t%.3f\t%.3f", v, testMotor.power, testMotor.imePosition, testMotor.imeVelocity, avgAccel);
-				if( nPgmTime - startTime > MinRunTime && avgAccel < 0 ){
-					break;
-				}
-				while( nPgmTime - iTime < 100 )delay(1);
-				++count;
-			}
+	for( long iTime = nPgmTime; !isPressed(pActivator); iTime = nPgmTime ) {
+		targetVelocity = getVelocityDial();
+		measureVelocity(testMotor);
+		error = testMotor.imeVelocity - targetVelocity;
+		addSample( errorAverager, error );
+		avgError = average( errorAverager );
+		p = 0.1 * error + 0.1 * avgError;
+		setPower(testMotor, idealPower - p);
 
-			float voltAvg = vSum / count;
-			float vel = average( velocityAverager );
-			writeDebugStreamLine("%.2f\t%.1f\t%.3f", voltAvg, po, vel);
 
-			gradualStop( testMotor );
-			waitUntilRest( testMotor );
-			//writeDebugStreamLine("");
-		}
+		writeDebugStreamLine("%.2f\t%.3f\t%.3f\t%.3f", v, testMotor.power, testMotor.imeVelocity, targetVelocity);
+
+		while( nPgmTime - iTime < 50 )delay(2);
 	}
+
+	gradualStop( testMotor );
 }

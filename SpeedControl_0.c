@@ -13,14 +13,13 @@
 #include <CKGeneral.h>
 #include <CKVex.h>
 
-#define CKAveragerSampleSize 5
+#define CKAveragerSampleSize 3
 #include <CKAverager.h>
 
 
 
 
 const float TicksPerRev = TicksPerRev_393Standard;
-const float RadiansPerTick = 2*PI/TicksPerRev;
 
 const int MaxMotorPower = 127;
 
@@ -32,12 +31,12 @@ struct MotorState {
 	int port;
 	float power;
 
-	float imePosition; // radians
-	float imeVelocity; // radians per second
-	float imeAccel; // radians/sec^2
+	float imeRevs;
+	float imeVelocity; // revs per second
+	float imeAccel; // revs/sec^2
 
 	// Used for calculating velocity
-	long imeTime0;
+	unsigned long imeTime0;
 };
 
 void updateMotorPower( MotorState& self );
@@ -45,7 +44,7 @@ void updateMotorPower( MotorState& self );
 void MotorStateInit( MotorState& self, int port ){
 	self.port = port;
 	self.power = 0;
-	self.imePosition = 0;
+	self.imeRevs = 0;
 	self.imeVelocity = 0;
 
 	self.imeTime0 = nPgmTime;
@@ -65,15 +64,16 @@ void setPower( MotorState& self, float power ){
 	updateMotorPower( self );
 }
 
+
 void measureVelocity( MotorState& self ){
-	long now = nPgmTime;
-	float dx = nMotorEncoder[ self.port ] * RadiansPerTick;
+	unsigned long now = nPgmTime;
+	self.imeRevs = nMotorEncoder[ self.port ] / TicksPerRev;
 	nMotorEncoder[ self.port ] = 0;
-	self.imePosition += dx;
+
 	float dt = (float)(now - self.imeTime0) / 1000.0;
 	if( dt == 0 ) dt = 1;
 	float velocity0 = self.imeVelocity;
-	self.imeVelocity = dx / dt;
+	self.imeVelocity = (float)self.imeRevs / dt;
 	self.imeAccel = (self.imeVelocity - velocity0) / dt;
 
 	self.imeTime0 = now;
@@ -81,32 +81,9 @@ void measureVelocity( MotorState& self ){
 
 
 float potentiometer( int port ){
-	return SensorValue[port] / 4095.0;
+	return SensorValue[port] / 1024.0;
 }
 
-
-void gradualStop( MotorState& self ){
-	float s = sgn( self.power );
-	for( float p = fabs(self.power); p > 0; p -= 0.01 ){
-		setPower( self, s*p );
-		delay(20);
-	}
-	setPower( self, 0 );
-}
-
-
-void waitUntilRest( MotorState& self ){
-	//waitUntilMotorStop( self.port );
-	int restCount = 0;
-	while( restCount < 5 ){
-		measureVelocity( self );
-		if( self.imeVelocity < 0.001 )
-			++restCount;
-		else
-			restCount = 0;
-		delay(50);
-	}
-}
 
 
 task main(){
@@ -120,46 +97,38 @@ task main(){
 	Averager velocityAverager;
 	AveragerInit( velocityAverager );
 
-	float v = MainBatteryVoltage();
+	//float v = MainBatteryVoltage();
 
 	while( !isPressed(pActivator) )  delay(10);
 	while(  isPressed(pActivator) )  delay(10);
 
-	const long MinRunTime = 2000;
+	float p = potentiometer(pSpeedPot);
+	float target, measured, error, Kp = 0.1, Kd = 0.1, power = 0, lastError, dt, dError;
+	long t0 = nPgmTime;
 
-	//float po = potentiometer(pSpeedPot);
+	wait1Msec(100);
 
-	for( int rep = 0; rep < 20; ++rep ){
-		for( float po = 0.1; po <= 1.001; po += 0.1 ){
-			setPower( testMotor, po );
+	while( !isPressed(pActivator) ){
+		p = potentiometer(pSpeedPot);
+		target = p;
 
-			long startTime = nPgmTime;
-			float avgAccel = 0;
-			float vSum = 0;
-			int count = 0;
-			while( !isPressed(pActivator) ){
-				long iTime = nPgmTime;
-				v = MainBatteryVoltage();
-				vSum += v;
-				measureVelocity(testMotor);
-				addSample( velocityAverager, testMotor.imeVelocity );
-				addSample( accelAverager, testMotor.imeAccel );
-				avgAccel = average( accelAverager );
-				//writeDebugStreamLine("%.2f\t%.3f\t%.3f\t%.3f", v, testMotor.power, testMotor.imePosition, testMotor.imeVelocity, avgAccel);
-				if( nPgmTime - startTime > MinRunTime && avgAccel < 0 ){
-					break;
-				}
-				while( nPgmTime - iTime < 100 )delay(1);
-				++count;
-			}
+		measureVelocity(testMotor);
+		addSample( velocityAverager, testMotor.imeVelocity );
+		addSample( accelAverager, testMotor.imeAccel );
 
-			float voltAvg = vSum / count;
-			float vel = average( velocityAverager );
-			writeDebugStreamLine("%.2f\t%.1f\t%.3f", voltAvg, po, vel);
+		measured = testMotor.imeVelocity; //average( velocityAverager );
+		error = target - measured;
+		dt = nPgmTime - t0;
+		t0 = nPgmTime;
+		dError = (error - lastError) / dt;
+		lastError = error;
+		power += Kp * error;// - Kd * dError;
 
-			gradualStop( testMotor );
-			waitUntilRest( testMotor );
-			//writeDebugStreamLine("");
-		}
+		setPower(testMotor, power);
+
+		writeDebugStreamLine("%.3f\t%.3f\t%.3f", target, measured, power);
+		wait1Msec(50);
 	}
+
+	setPower( testMotor, 0 );
 }
