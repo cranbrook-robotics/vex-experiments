@@ -12,113 +12,28 @@
 
 #include <CKGeneral.h>
 #include <CKVex.h>
+#include <CKVexMotors.h>
 
-#define CKAveragerSampleSize 5
-#include <CKAverager.h>
-
-
-
-
-const float TicksPerRev = TicksPerRev_393Standard;
-const float RadiansPerTick = 2*PI/TicksPerRev;
-
-const int MaxMotorPower = 127;
+#define CKMovingAverageSampleSize 8
+#include <CKMovingAverage.h>
 
 
 
 
-
-struct MotorState {
-	int port;
-	float power;
-
-	float imePosition; // radians
-	float imeVelocity; // radians per second
-	float imeAccel; // radians/sec^2
-
-	// Used for calculating velocity
-	long imeTime0;
-};
-
-void updateMotorPower( MotorState& self );
-
-void MotorStateInit( MotorState& self, int port ){
-	self.port = port;
-	self.power = 0;
-	self.imePosition = 0;
-	self.imeVelocity = 0;
-
-	self.imeTime0 = nPgmTime;
-
-	nMotorEncoder[ self.port ] = 0;
-
-	updateMotorPower( self );
-}
-
-void updateMotorPower( MotorState& self ){
-	motor[ self.port ] = (int)round( self.power * MaxMotorPower );
-}
-
-
-void setPower( MotorState& self, float power ){
-	self.power = bound( power, -1, 1 );
-	updateMotorPower( self );
-}
-
-void measureVelocity( MotorState& self ){
-	long now = nPgmTime;
-	float dx = nMotorEncoder[ self.port ] * RadiansPerTick;
-	nMotorEncoder[ self.port ] = 0;
-	self.imePosition += dx;
-	float dt = (float)(now - self.imeTime0) / 1000.0;
-	if( dt == 0 ) dt = 1;
-	float velocity0 = self.imeVelocity;
-	self.imeVelocity = dx / dt;
-	self.imeAccel = (self.imeVelocity - velocity0) / dt;
-
-	self.imeTime0 = now;
-}
-
-
-float potentiometer( int port ){
-	return SensorValue[port] / 4095.0;
-}
-
-
-void gradualStop( MotorState& self ){
-	float s = sgn( self.power );
-	for( float p = fabs(self.power); p > 0; p -= 0.01 ){
-		setPower( self, s*p );
-		delay(20);
-	}
-	setPower( self, 0 );
-}
-
-
-void waitUntilRest( MotorState& self ){
-	//waitUntilMotorStop( self.port );
-	int restCount = 0;
-	while( restCount < 5 ){
-		measureVelocity( self );
-		if( self.imeVelocity < 0.001 )
-			++restCount;
-		else
-			restCount = 0;
-		delay(50);
-	}
-}
 
 
 task main(){
 
-	MotorState testMotor;
-	MotorStateInit( testMotor, mpTest );
+	tMotor motorPorts[] = { mpTest };
 
-	Averager accelAverager;
-	AveragerInit( accelAverager );
+	IMEMotorSet imems;
+	IMEMotorSetInit( imems, motorPorts );
 
-	Averager velocityAverager;
-	AveragerInit( velocityAverager );
+	MovingAverage maAcceleration;
+	MovingAverageInit( maAcceleration );
+
+	MovingAverage maVelocity;
+	MovingAverageInit( maVelocity );
 
 	float v = MainBatteryVoltage();
 
@@ -131,7 +46,7 @@ task main(){
 
 	for( int rep = 0; rep < 20; ++rep ){
 		for( float po = 0.1; po <= 1.001; po += 0.1 ){
-			setPower( testMotor, po );
+			setPower( imems, po );
 
 			long startTime = nPgmTime;
 			float avgAccel = 0;
@@ -141,24 +56,26 @@ task main(){
 				long iTime = nPgmTime;
 				v = MainBatteryVoltage();
 				vSum += v;
-				measureVelocity(testMotor);
-				addSample( velocityAverager, testMotor.imeVelocity );
-				addSample( accelAverager, testMotor.imeAccel );
-				avgAccel = average( accelAverager );
-				//writeDebugStreamLine("%.2f\t%.3f\t%.3f\t%.3f", v, testMotor.power, testMotor.imePosition, testMotor.imeVelocity, avgAccel);
+				measure(imems);
+				nextSample( maVelocity, imems.ime.velocity );
+				nextSample( maAcceleration, imems.ime.acceleration );
+				avgAccel = getAverage( maAcceleration );
+				//writeDebugStreamLine("%.2f\t%.3f\t%.3f\t%.3f", v, testMotor.power, testMotor.position, testMotor.velocity, avgAccel);
 				if( nPgmTime - startTime > MinRunTime && avgAccel < 0 ){
 					break;
 				}
-				while( nPgmTime - iTime < 100 )delay(1);
+				long iterationDuration = nPgmTime - iTime;
+				delay( 100 - iterationDuration );
 				++count;
 			}
 
 			float voltAvg = vSum / count;
-			float vel = average( velocityAverager );
+			float vel = getAverage( maVelocity );
 			writeDebugStreamLine("%.2f\t%.1f\t%.3f", voltAvg, po, vel);
 
-			gradualStop( testMotor );
-			waitUntilRest( testMotor );
+			//gradualStop( testMotor );
+			setPower( imems, 0 );
+			waitUntilRest( imems );
 			//writeDebugStreamLine("");
 		}
 	}
