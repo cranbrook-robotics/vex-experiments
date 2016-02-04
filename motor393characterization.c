@@ -7,10 +7,7 @@
 
 #include <CKGeneral.h>
 #include <CKVex.h>
-#define CKMotorSetSize 4
 #include <CKVexMotors.h>
-
-#define CKMovingAverageSampleSize 8
 #include <CKMovingAverage.h>
 
 
@@ -23,20 +20,15 @@ task main(){
 	tMotor motorPorts[] = { mFlyLT, mFlyLB, mFlyRT, mFlyRB };
 
 	IMEMotorSet imems;
-	IMEMotorSetInit( imems, motorPorts );
+	IMEMotorSetInit( imems, motorPorts, 4 );
 
 	MovingAverage maAcceleration;
-	MovingAverageInit( maAcceleration );
+	MovingAverageInit( maAcceleration, 8 );
 
 	MovingAverage maVelocity;
-	MovingAverageInit( maVelocity );
-
-	//while( !isPressed(pActivator) )  delay(10);
-	//while(  isPressed(pActivator) )  delay(10);
+	MovingAverageInit( maVelocity, 8 );
 
 	const long MinRunTime = 2000;
-
-	//float po = potentiometer(pSpeedPot);
 
 	for( int rep = 0; rep < 1; ++rep ){
 		for( float po = 0.3; po <= 1.001; po += 0.1 ){
@@ -56,10 +48,14 @@ task main(){
 				nextSample( maVelocity, imems.ime.velocity );
 				nextSample( maAcceleration, imems.ime.acceleration );
 				avgAccel = getAverage( maAcceleration );
-				//writeDebugStreamLine("%.2f\t%.3f\t%.3f\t%.3f", v, testMotor.power, testMotor.position, testMotor.velocity, avgAccel);
 				if( nPgmTime - startTime > MinRunTime ){
-					if( !cruising && avgAccel < 0 ) cruising = 1;
-					else if( ++cruising > 30 ) break; // cruise for 3 seconds.
+					if( !cruising ){
+						if( avgAccel < 0 ){
+							cruising = 1;
+						}
+					} else if( ++cruising > 30 ){
+						break; // cruise for 3 seconds after reaching 0ish acceleration.
+					}
 				}
 				long iterationDuration = nPgmTime - iTime;
 				delay( 100 - iterationDuration );
