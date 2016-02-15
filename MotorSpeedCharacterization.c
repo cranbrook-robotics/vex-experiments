@@ -11,10 +11,25 @@
 #include <CKMovingAverage.h>
 
 
+#define MEASURING_POWER_EXPANDER
 
-//float powerExpanderVoltage() {
-//	return (float)SensorValue[pPowerExp] / 70.0 / 4;
-//}
+
+#ifdef MEASUREING_POWER_EXPANDER
+float powerExpanderVoltage() {
+	return (float)SensorValue[in1] / 70.0 / 4;
+}
+#endif
+
+
+float batteryVoltage()
+{
+#ifdef MEASUREING_POWER_EXPANDER
+	return (MainBatteryVoltage() + powerExpanderVoltage()) / 2.0;
+#else
+	return MainBatteryVoltage();
+#endif
+}
+
 
 
 task main(){
@@ -49,8 +64,7 @@ task main(){
 
 			while( true ){
 				long iTime = nPgmTime;
-				//vSum += (MainBatteryVoltage() + powerExpanderVoltage()) / 2.0;
-				vSum += MainBatteryVoltage();
+				vSum += batteryVoltage();
 				++vCount;
 				measure(imems);
 				nextSample( maVelocity, imems.ime.velocity );
@@ -58,12 +72,12 @@ task main(){
 				avgAccel = getAverage( maAcceleration );
 				if( nPgmTime - startTime > MinRunTime ){
 					if( !cruising ){
-						//writeDebugStreamLine( "%f", powerExpanderVoltage() );
 						if( avgAccel < 0 ){
 							cruising = 1;
 						}
 					} else if( ++cruising > 30 ){
-						break; // cruise for 3 seconds after reaching 0ish acceleration.
+						break;
+						// cruise for 3 seconds after reaching 0ish acceleration.
 					}
 				}
 				long iterationDuration = nPgmTime - iTime;
