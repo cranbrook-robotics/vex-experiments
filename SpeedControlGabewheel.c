@@ -46,7 +46,7 @@ task main(){
 	MovingAverageInit( maError, 4 );
 
 	float targetV, measV, vError = 0, cruisePower, power, e0;
-	const float Kq = 0.02, Kd = 0, Ki = 0.005;
+	const float Kq = 0.04, Kd = 0, Ki = 0.02;
 
 	while(true){
 		clearTimer(T1);
