@@ -13,26 +13,46 @@
 
 
 
+#define MEASURING_POWER_EXPANDER
+
+
+#ifdef MEASUREING_POWER_EXPANDER
+float powerExpanderVoltage() {
+	return (float)SensorValue[powerExpBattery] / 70.0 / 4;
+}
+#endif
+
+
+float batteryVoltage()
+{
+#ifdef MEASUREING_POWER_EXPANDER
+	return (MainBatteryVoltage() + powerExpanderVoltage()) / 2.0;
+#else
+	return MainBatteryVoltage();
+#endif
+}
+
+
+
+
 
 
 task main(){
 
-	//tMotor motorPorts[] = { mFlyLT, mFlyLB, mFlyRT, mFlyRB };//32
-	//tMotor motorPorts[] = { mFlyR, mFlyL };//32A
-	//tMotor motorPorts[] = { mFlyT, mFlyB };//35A
-	tMotor motorPortsL[] = { mFlyLF, mFlyLB };//35
-	tMotor motorPortsR[] = { mFlyRF, mFlyRB };//35
-
+	tMotor motorPortsL[] = { mFlyLF, mFlyLB, mFlyLO };//35
+	tMotor motorPortsR[] = { mFlyRF, mFlyRB, mFlyRO };//35
 
 	IMEMotorSet imemsL, imemsR;
 	IMEMotorSetInit( imemsL, motorPortsL, 2 );
 	IMEMotorSetInit( imemsR, motorPortsR, 2 );
 
-	MovingAverage maAcceleration;
-	MovingAverageInit( maAcceleration, 8 );
+	MovingAverage maAccelerationL, maAccelerationR;
+	MovingAverageInit( maAccelerationL, 8 );
+	MovingAverageInit( maAccelerationR, 8 );
 
-	MovingAverage maVelocity;
-	MovingAverageInit( maVelocity, 8 );
+	MovingAverage maVelocityL, maVelocityR;
+	MovingAverageInit( maVelocityL, 8 );
+	MovingAverageInit( maVelocityR, 8 );
 
 	const long MinRunTime = 2000;
 
@@ -49,13 +69,15 @@ task main(){
 
 			while( true ){
 				long iTime = nPgmTime;
-				vSum += MainBatteryVoltage();
+				vSum += batteryVoltage();
 				++vCount;
 				measure(imemsL);
 				measure(imemsR);
-				nextSample( maVelocity, (-imemsL.ime.velocity + imemsR.ime.velocity) / 2 );
-				nextSample( maAcceleration, (-imemsL.ime.acceleration + imemsR.ime.acceleration) / 2 );
-				avgAccel = getAverage( maAcceleration );
+				nextSample( maVelocityL, (imemsL.ime.velocity) );
+				nextSample( maVelocityR, (imemsR.ime.velocity) );
+				nextSample( maAccelerationL, (imemsL.ime.acceleration) );
+				nextSample( maAccelerationR, (imemsR.ime.acceleration) );
+				avgAccel = ( getAverage(maAccelerationL) + getAverage(maAccelerationR) ) / 2.0;
 
 				if( nPgmTime - startTime > MinRunTime ){
 					if( !cruising ){
@@ -72,8 +94,7 @@ task main(){
 			}
 
 			float voltAvg = vSum / vCount;
-			float vel = getAverage( maVelocity );
-			writeDebugStreamLine("%.2f\t%.2f\t%.3f", voltAvg, po, vel);
+			writeDebugStreamLine("%.2f\t%.2f\t%.2f\t%.2f", voltAvg, po, getAverage( maVelocityL ), getAverage( maVelocityR ));
 
 			setPower( imemsL, 0 );
 			setPower( imemsR, 0 );
