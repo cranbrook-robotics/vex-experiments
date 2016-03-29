@@ -13,7 +13,7 @@
 
 
 
-#define MEASURING_POWER_EXPANDER
+//#define MEASURING_POWER_EXPANDER
 
 
 #ifdef MEASUREING_POWER_EXPANDER
@@ -39,8 +39,8 @@ float batteryVoltage()
 
 task main(){
 
-	tMotor motorPortsL[] = { mFlyLF, mFlyLB, mFlyLO };//35
-	tMotor motorPortsR[] = { mFlyRF, mFlyRB, mFlyRO };//35
+	tMotor motorPortsL[] = { mFlyLB, mFlyLF };//35
+	tMotor motorPortsR[] = { mFlyRB, mFlyRF };//35
 
 	IMEMotorSet imemsL, imemsR;
 	IMEMotorSetInit( imemsL, motorPortsL, 2 );
