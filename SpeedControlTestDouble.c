@@ -29,11 +29,11 @@ const tMotor motorPorts [NFlywheels] [MotorsPerFlywheel] = {
 // power = A e^( B speed )
 //Left: 1.3311e0.1317x
 //Right: 0.9754e0.1611x
-const float As[] = {1.3311, 0.9754};
-const float Bs[] = {0.1317, 0.1611};
+//const float As[] = {1.3311, 0.9754};
+//const float Bs[] = {0.1317, 0.1611};
 
 // Controller coefficients
-const float Kq = 0.1, Kd = 0, Ki = 0.02;
+const float Kq = 0.04, Kd = 0, Ki = 0.02;
 
 //_________________________________________________________
 
@@ -43,15 +43,19 @@ const float Kq = 0.1, Kd = 0, Ki = 0.02;
 
 
 float speedDialValue(){
-	return 25*potentiometer(speedDial); //rad/sec of motor output shaft
+	return 11*potentiometer(speedDial); //rad/sec of motor output shaft
 }
 
 
 task main(){
-	FlywheelSpeedController ctlrs[NFlywheels];
-	for( int f = 0; f < NFlywheels; ++f ){
-		FlywheelSpeedControllerInit( ctlrs[f], Kq, Ki, Kd, As[f], Bs[f], motorPorts[f], MotorsPerFlywheel, FlywheelGearbox );
-	}
+	FlywheelSpeedController ctlrL, ctlrR;
+
+	const tMotor motorPortsL[] = {mFlyLB, mFlyLF};
+	const tMotor motorPortsR[] = {mFlyRB, mFlyRF};
+
+	FlywheelSpeedControllerInit( ctlrL, Kq, Ki, Kd, 1.3311, 0.1317, motorPortsL, MotorsPerFlywheel, FlywheelGearbox );
+	FlywheelSpeedControllerInit( ctlrR, Kq, Ki, Kd, 0.9754, 0.1611, motorPortsR, MotorsPerFlywheel, FlywheelGearbox );
+
 
 	//MovingAverageInit( maBattery, 10 );
 
@@ -59,16 +63,15 @@ task main(){
 	while(true){
 		clearTimer(T1);
 
-		for(int f = 0; f < NFlywheels; ++f) {
-			setTargetSpeed( ctlrs[f], speedDialValue() );
-			update( ctlrs[f] );
-		}
+		float speed = speedDialValue();
+		setTargetSpeed( ctlrL, speed );
+		setTargetSpeed( ctlrR, speed );
+		update( ctlrL );
+		update( ctlrR );
 
 		writeDebugStream( "%.2f", MainBatteryVoltage() );
-		for(int f = 0; f < NFlywheels; ++f) {
-			FlywheelSpeedController& c = ctlrs[f];
-			writeDebugStream( "  |  %.2f \t %.2f \t %.2f", c.targetSpeed, getAverage( c.maFlywheelSpeed ), c.controlPower );
-		}
+		writeDebugStream( "  |  %.2f \t %.2f \t %.2f", ctlrL.targetSpeed, getAverage( ctlrL.maFlywheelSpeed ), ctlrL.controlPower );
+		writeDebugStream( "  |  %.2f \t %.2f \t %.2f", ctlrR.targetSpeed, getAverage( ctlrR.maFlywheelSpeed ), ctlrR.controlPower );
 		writeDebugStreamLine("");
 
 		delay( 100 - time1[T1] );
