@@ -4,33 +4,7 @@
 // Always open the debug stream window when the program starts
 #pragma DebuggerWindows("debugStream")
 
-
-#include <CKGeneral.h>
-#include <CKVex.h>
-#include <CKVexMotors.h>
-#include <CKMovingAverage.h>
-
-
-
-
-//#define MEASURING_POWER_EXPANDER
-
-
-#ifdef MEASUREING_POWER_EXPANDER
-float powerExpanderVoltage() {
-	return (float)SensorValue[powerExpBattery] / 70.0 / 4;
-}
-#endif
-
-
-float batteryVoltage()
-{
-#ifdef MEASUREING_POWER_EXPANDER
-	return (MainBatteryVoltage() + powerExpanderVoltage()) / 2.0;
-#else
-	return MainBatteryVoltage();
-#endif
-}
+#include <CKFlywheelSpeedController.h>
 
 
 
@@ -39,13 +13,16 @@ float batteryVoltage()
 
 task main(){
 
+	FlywheelSpeedController dummyCtlr;
+	setFlywheelBatteryConfig( dummyCtlr, NoPort, 1 );
+
 	// 32B
 	tMotor motorPortsL[] = { mFlyLF, mFlyLB };
 	tMotor motorPortsR[] = { mFlyRF, mFlyRB };
 
 	IMEMotorSet imemsL, imemsR;
-	IMEMotorSetInit( imemsL, motorPortsL, 2 );
-	IMEMotorSetInit( imemsR, motorPortsR, 2 );
+	IMEMotorSetInit( imemsL, motorPortsL, 2, M393Turbo );
+	IMEMotorSetInit( imemsR, motorPortsR, 2, M393Turbo );
 
 	MovingAverage maAccelerationL, maAccelerationR;
 	MovingAverageInit( maAccelerationL, 8 );
@@ -70,7 +47,7 @@ task main(){
 
 			while( true ){
 				long iTime = nPgmTime;
-				vSum += batteryVoltage();
+				vSum += flywheelBatteryVoltage(dummyCtlr);
 				++vCount;
 				measure(imemsL);
 				measure(imemsR);

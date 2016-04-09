@@ -4,8 +4,6 @@
 // Always open the debug stream window when the program starts
 #pragma DebuggerWindows("debugStream")
 
-
-#include <CKGeneral.h>
 #include <CKFlywheelSpeedController.h>
 
 
@@ -14,14 +12,8 @@
  * Robot-specific parameters
  */
 
-//const int NFlywheels = 2;
-const Motor393GearBox FlywheelGearbox = M393Standard;
+const Motor393GearBox FlywheelGearbox = M393Turbo;
 const int MotorsPerFlywheel = 2;
-
-//left  1.2762e0.138x
-//right
-// Controller coefficients
-const float Kq = 0.04, Kd = 0, Ki = 0.02;
 
 //_________________________________________________________
 
@@ -31,7 +23,7 @@ const float Kq = 0.04, Kd = 0, Ki = 0.02;
 
 
 float speedDialValue(){
-	return 11*potentiometer(speedDial); //rad/sec of motor output shaft
+	return 24*potentiometer(speedDial); //rad/sec of motor output shaft
 }
 
 
@@ -41,10 +33,12 @@ task main(){
 	const tMotor motorPortsL[] = {mFlyLF, mFlyLB};
 	const tMotor motorPortsR[] = {mFlyRF, mFlyRB};
 
-	//1.2762e0.138x
-	FlywheelSpeedControllerInit( ctlrL, Kq, Ki, Kd, 1.2762, 0.138, motorPortsL, MotorsPerFlywheel, FlywheelGearbox );
-	//1.2721e0.1416x
-	FlywheelSpeedControllerInit( ctlrR, Kq, Ki, Kd, 1.2721, 0.1416, motorPortsR, MotorsPerFlywheel, FlywheelGearbox );
+	const float Kq = 0.05, Ki = 0.01, Kd = 0;
+
+	// 1.2908e0.0602x
+	FlywheelSpeedControllerInit( ctlrL, Kq, Ki, Kd, 1.2908, 0.0602, motorPortsL, MotorsPerFlywheel, FlywheelGearbox );
+	// 1.4517e0.056x
+	FlywheelSpeedControllerInit( ctlrR, Kq, Ki, Kd, 1.4517, 0.0560, motorPortsR, MotorsPerFlywheel, FlywheelGearbox );
 
 
 	//MovingAverageInit( maBattery, 10 );
@@ -54,6 +48,7 @@ task main(){
 		clearTimer(T1);
 
 		float speed = speedDialValue();
+
 		setTargetSpeed( ctlrL, speed );
 		setTargetSpeed( ctlrR, speed );
 		update( ctlrL );
@@ -64,6 +59,6 @@ task main(){
 		writeDebugStream( "  |  %.2f \t %.2f \t %.2f", ctlrR.targetSpeed, getAverage( ctlrR.maFlywheelSpeed ), ctlrR.controlPower );
 		writeDebugStreamLine("");
 
-		delay( 100 - time1[T1] );
+		delay( 30 - time1[T1] );
 	}
 }
