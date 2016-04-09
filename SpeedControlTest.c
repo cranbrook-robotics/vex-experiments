@@ -5,7 +5,6 @@
 #pragma DebuggerWindows("debugStream")
 
 
-#include <CKGeneral.h>
 #include <CKFlywheelSpeedController.h>
 
 
@@ -15,11 +14,11 @@
  */
 
 const Motor393GearBox FlywheelGearbox = M393Standard;
-const int MotorsPerFlywheel = 2;
+const int MotorsPerFlywheel = 4;
 
 const tMotor motorPorts[] =
 	//{ mFlyR, mFlyL }//32A
-	{ mFlyT, mFlyB }//35A
+	{ mFly1, mFly2, mFly3, mFly4 }//35A
 	//{ mFlyB, mFlyM, mFlyT }//Gabewheel
 ;
 
@@ -46,6 +45,7 @@ float speedDialValue(){
 task main(){
 	FlywheelSpeedController ctlr;
 	FlywheelSpeedControllerInit( ctlr, Kq, Ki, Kd, A, B, motorPorts, MotorsPerFlywheel, FlywheelGearbox );
+	setFlywheelBatteryConfig( ctlr, in1 /*pPowerExpander*/, 0.5 );
 
 	//MovingAverageInit( maBattery, 10 );
 
@@ -56,7 +56,7 @@ task main(){
 		setTargetSpeed( ctlr, speedDialValue() );
 		update( ctlr );
 
-		writeDebugStream( "%.2f", MainBatteryVoltage() );
+		writeDebugStream( "%.2f", flywheelBatteryVoltage(ctlr) );
 		FlywheelSpeedController& c = ctlr;
 		writeDebugStreamLine( "  |  %.2f \t %.2f \t %.2f", c.targetSpeed, getAverage( c.maFlywheelSpeed ), c.controlPower );
 
