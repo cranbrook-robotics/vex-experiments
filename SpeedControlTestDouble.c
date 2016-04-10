@@ -7,18 +7,7 @@
 #include <CKFlywheelSpeedController.h>
 
 
-/*_________________________________________________________
- *
- * Robot-specific parameters
- */
-
-const Motor393GearBox FlywheelGearbox = M393Turbo;
-const int MotorsPerFlywheel = 2;
-
-//_________________________________________________________
-
-
-
+FlywheelSpeedController ctlrL, ctlrR;
 
 
 
@@ -27,38 +16,51 @@ float speedDialValue(){
 }
 
 
-task main(){
-	FlywheelSpeedController ctlrL, ctlrR;
 
+void init(){
+	const Motor393GearBox Gearbox = M393Turbo;
 	const tMotor motorPortsL[] = {mFlyLF, mFlyLB};
 	const tMotor motorPortsR[] = {mFlyRF, mFlyRB};
-
-	const float Kq = 0.05, Ki = 0.01, Kd = 0;
+	const float Kq = 0.05, Ki = 0.03, Kd = 0;
 
 	// 1.2908e0.0602x
-	FlywheelSpeedControllerInit( ctlrL, Kq, Ki, Kd, 1.2908, 0.0602, motorPortsL, MotorsPerFlywheel, FlywheelGearbox );
+	FlywheelSpeedControllerInit( ctlrL, Kq, Ki, Kd, 1.2908, 0.0602, motorPortsL, 2, Gearbox );
 	// 1.4517e0.056x
-	FlywheelSpeedControllerInit( ctlrR, Kq, Ki, Kd, 1.4517, 0.0560, motorPortsR, MotorsPerFlywheel, FlywheelGearbox );
+	FlywheelSpeedControllerInit( ctlrR, Kq, Ki, Kd, 1.4517, 0.0560, motorPortsR, 2, Gearbox );
+}
 
 
-	//MovingAverageInit( maBattery, 10 );
+
+float speed = 0;
 
 
+
+task ControlLoop() {
 	while(true){
-		clearTimer(T1);
-
-		float speed = speedDialValue();
 
 		setTargetSpeed( ctlrL, speed );
 		setTargetSpeed( ctlrR, speed );
 		update( ctlrL );
 		update( ctlrR );
 
+		delay(30);
+	}
+}
+
+
+
+task main(){
+	init();
+	startTask(ControlLoop, kHighPriority);
+
+	while(true){
+		speed = speedDialValue();
+
 		writeDebugStream( "%.2f", MainBatteryVoltage() );
 		writeDebugStream( "  |  %.2f \t %.2f \t %.2f", ctlrL.targetSpeed, getAverage( ctlrL.maFlywheelSpeed ), ctlrL.controlPower );
 		writeDebugStream( "  |  %.2f \t %.2f \t %.2f", ctlrR.targetSpeed, getAverage( ctlrR.maFlywheelSpeed ), ctlrR.controlPower );
 		writeDebugStreamLine("");
 
-		delay( 30 - time1[T1] );
+		delay( 200 );
 	}
 }
