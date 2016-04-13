@@ -28,7 +28,7 @@ const tMotor motorPorts[] =
 const float A = 0.7555, B = 0.1314;
 
 // Controller coefficients
-const float Kq = 0.15, Kd = 0., Ki = 0.05;
+const float Kq = 0.15, Kd = 0., Ki = 0.01;
 
 //_________________________________________________________
 
@@ -59,7 +59,7 @@ task main(){
 	while(true){
 		writeDebugStream( "%.2f", flywheelBatteryVoltage(ctlr) );
 		FlywheelSpeedController& c = ctlr;
-		writeDebugStreamLine( "  |  %.2f \t %.2f \t %.2f", c.targetSpeed, getAverage( c.maFlywheelSpeed ), c.controlPower );
+		writeDebugStreamLine( "\t | \t %.2f \t %.2f \t %.2f", c.targetSpeed, getAverage( c.maFlywheelSpeed ), c.controlPower );
 
 		delay( 100 );
 	}
