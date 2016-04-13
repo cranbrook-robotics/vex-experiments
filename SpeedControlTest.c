@@ -24,11 +24,11 @@ const tMotor motorPorts[] =
 ;
 
 // power = A e^( B speed )
-// 1.2235e0.1072x
-const float A = 1.2235, B = 0.1072;
+// 0.7555e0.1314x
+const float A = 0.7555, B = 0.1314;
 
 // Controller coefficients
-const float Kq = 0.2, Kd = 0, Ki = 0.05;
+const float Kq = 0.15, Kd = 0., Ki = 0.05;
 
 //_________________________________________________________
 
@@ -46,17 +46,15 @@ task control(){
 	while(true){
 		setTargetSpeed( ctlr, speedDialValue() );
 		update( ctlr );
-		delay(30);
+		delay(50);
 	}
 }
 
 task main(){
 	FlywheelSpeedControllerInit( ctlr, Kq, Ki, Kd, A, B, motorPorts, MotorsPerFlywheel, FlywheelGearbox );
-	setFlywheelBatteryConfig( ctlr, powerExpVoltage, 0.5 );
+	setFlywheelBatteryConfig( ctlr, vPowerExpander, 0.5 );
 
-	//MovingAverageInit( maBattery, 10 );
-
-	startTask(control);
+	startTask(control, kHighPriority);
 
 	while(true){
 		writeDebugStream( "%.2f", flywheelBatteryVoltage(ctlr) );

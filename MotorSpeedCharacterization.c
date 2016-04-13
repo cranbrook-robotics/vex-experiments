@@ -12,18 +12,16 @@
 
 task main(){
 
-	//tMotor motorPorts[] = { mFlyLT, mFlyLB, mFlyRT, mFlyRB };//32
-	//tMotor motorPorts[] = { mFlyR, mFlyL };//32A
-	tMotor motorPorts[] = { mFly1, mFly2, mFly3, mFly4 };//35A
-	//tMotor motorPorts[] = { flyFour, flyOneYThree, flyTwo };//35B
-	//tMotor motorPorts[] = { mFlyB, mFlyM, mFlyT };//Gabewheel
+	const tMotor mports[] = { mFly1, mFly2, mFly3, mFly4 };//35A
+	//const tMotor mports[] = { flyFour, flyOneYThree, flyTwo };//35B
+	//const tMotor mports[] = {mFlyTop, mFlyMidTop, mFlyMidBottom, mFlyBottom};//35
 
 
 	FlywheelSpeedController flywheelController;
-	setFlywheelBatteryConfig( flywheelController, powerExpVoltage, 0.5);
+	setFlywheelBatteryConfig( flywheelController, vPowerExpander, 0.5 );
 
 	IMEMotorSet imems;
-	IMEMotorSetInit( imems, motorPorts, 4, M393HighSpeed );
+	IMEMotorSetInit( imems, mports, 4, M393HighSpeed );
 
 	MovingAverage maAcceleration;
 	MovingAverageInit( maAcceleration, 8 );
