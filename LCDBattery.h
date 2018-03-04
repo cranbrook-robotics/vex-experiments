@@ -15,7 +15,7 @@ task ManageLCD()
 	string lcdBatteryVoltages;
 	while(true)
 	{
-		sprintf(lcdBatteryVoltages, "M: %.2f P: %.2f", MainBatteryVoltage(), SensorValue(pPowerExp)/283.2);
+		sprintf(lcdBatteryVoltages, "M: %.2f P: %.2f", MainBatteryVoltage(), SensorValue(pPowerExp)/182.4);
 		clearLCDLine(0);
 		clearLCDLine(1);
 		displayLCDString(0,0,lcdBatteryVoltages);
